@@ -621,6 +621,15 @@ if build_tools
         man_pages += 'tools/xkbcli-list.1.ronn'
     endif
 
+    config_scaffold = configuration_data()
+    config_scaffold.set('XKBEXTRAPATH', XKBCONFIGEXTRAPATH)
+    config_scaffold.set('DEFAULT_XKB_RULES', get_option('default-rules'))
+    configure_file(input: 'tools/xkbcli-scaffold.py',
+                   output: 'xkbcli-scaffold',
+                   configuration: config_scaffold,
+                   install: true,
+                   install_dir: dir_libexec)
+
     config_tool_option_test = configuration_data()
     config_tool_option_test.set('DISABLE_WARNING', 'yes')
     config_tool_option_test.set('MESON_BUILD_ROOT', meson.current_build_dir())
