@@ -615,6 +615,17 @@ if build_tools
                    install_dir: dir_libexec)
         man_pages += 'tools/xkbcli-list.1.ronn'
     endif
+
+    config_tool_option_test = configuration_data()
+    config_tool_option_test.set('DISABLE_WARNING', 'yes')
+    config_tool_option_test.set('MESON_BUILD_ROOT', meson.current_build_dir())
+    tool_option_test = configure_file(
+        input: 'tools/test_tool_option_parsing.py',
+        output: '@PLAINNAME@',
+        configuration : config_tool_option_test)
+    test('tool-option-parsing',
+         tool_option_test,
+         args : [tool_option_test, '-n', 'auto'])
 endif
 
 if get_option('enable-manpages')
