@@ -52,3 +52,10 @@ jobs:
           name: test logs
           path: |
             build/meson-logs/
+      - name: Upload doxygen docs
+        uses: actions/upload-artifact@v3
+        if: success()
+        with:
+          name: doxygen-docs
+          path: |
+            build/html/
