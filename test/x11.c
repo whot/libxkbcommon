@@ -24,10 +24,11 @@
 #include "config.h"
 
 #include "test.h"
+#include "xvfb-wrapper.h"
 #include "xkbcommon/xkbcommon-x11.h"
 
-int
-main(void)
+static int
+test(void)
 {
     struct xkb_context *ctx = test_get_context(0);
     xcb_connection_t *conn;
@@ -83,4 +84,8 @@ err_conn:
     xkb_context_unref(ctx);
 
     return exit_code;
+}
+
+int main(void) {
+    return xvfb_wrapper(&test);
 }
