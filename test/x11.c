@@ -28,7 +28,7 @@
 #include "xkbcommon/xkbcommon-x11.h"
 
 static int
-test(void)
+test(char *display)
 {
     struct xkb_context *ctx = test_get_context(0);
     xcb_connection_t *conn;
@@ -44,7 +44,7 @@ test(void)
     * If it fails, it's not necessarily an actual problem with the code.
     * So we don't want a FAIL here.
     */
-    conn = xcb_connect(NULL, NULL);
+    conn = xcb_connect(display, NULL);
     if (!conn || xcb_connection_has_error(conn)) {
         exit_code = SKIP_TEST;
         goto err_conn;

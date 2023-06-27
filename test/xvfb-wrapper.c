@@ -35,58 +35,24 @@
 #include "xvfb-wrapper.h"
 #include "xkbcommon/xkbcommon-x11.h"
 
-int xvfb_wrapper(int (*f)(void)) {
-    int ret;
-    char display[512];
-    char *envp[] = { NULL };
-    char *xvfb_argv[] = {
-        (char *) "Xvfb", display, NULL
-    };
-    pid_t xvfb_pid = 0;
-    char *xhost = NULL;
-    int xdpy_current = 0;
-    int xdpy_candidate;
-
-    /*
-     * What all of this mess does is:
-     * 1. Launch Xvfb on available DISPLAY.
-     * 2. Make an xcb connection to this display.
-     * 3. Launch xkbcomp to change the keymap of the new display (doing
-     *    this programmatically is major work [which we may yet do some
-     *    day for xkbcommon-x11] so we use xkbcomp for now).
-     * 4. Download the keymap back from the display using xkbcommon-x11.
-     * 5. Compare received keymap to the uploaded keymap.
-     * 6. Kill the server & clean up.
-     */
-
-    /*
-     * Detect current display, in order to avoid reusing it.
-     * It is OK if it fails (e.g. in headless mode).
-     */
-    xcb_parse_display(NULL, &xhost, &xdpy_current, NULL);
-
-    /*
-     * IANA assigns TCP port numbers from 6000 through 6063 to X11
-     * clients.  In addition, the current XCB implementation shows
-     * that, when an X11 client tries to establish a TCP connetion,
-     * the port number needed is specified by adding 6000 to a given
-     * display number.  So, one of reasonable ranges of xdpy_candidate
-     * is [0, 63].
-     */
-    for (xdpy_candidate = 63; xdpy_candidate >= 0; xdpy_candidate--) {
-        if (xdpy_candidate == xdpy_current) {
-            continue;
-        }
-        snprintf(display, sizeof(display),
-                 "%s:%d", (xhost != NULL) ? xhost : "",
-                 xdpy_candidate);
-        ret = posix_spawnp(&xvfb_pid, "Xvfb", NULL, NULL, xvfb_argv, envp);
-        if (ret == 0) {
-            break;
-        }
+int xvfb_wrapper(int (*f)(char* display)) {
+    /* File descriptor to retrieve the display number */
+    FILE * display_fd = tmpfile();
+    if (display_fd == NULL){
+        fprintf(stderr, "Unable to create temporary file.\n");
+        goto err_display_fd;
     }
-    free(xhost);
+    char display_fd_string[32];
+    snprintf(display_fd_string, sizeof(display_fd_string), "%d", fileno(display_fd));
 
+    /* Xvfb command: let the server find an available display. */
+    char *xvfb_argv[] = {
+        (char *) "Xvfb", (char *) "-displayfd", display_fd_string, NULL
+    };
+    char *envp[] = { NULL };
+    pid_t xvfb_pid = 0;
+
+    int ret = posix_spawnp(&xvfb_pid, "Xvfb", NULL, NULL, xvfb_argv, envp);
     if (ret != 0) {
         ret = SKIP_TEST;
         goto err_xvfd;
@@ -95,11 +61,26 @@ int xvfb_wrapper(int (*f)(void)) {
     /* Wait for Xvfb fully waking up to accept a connection from a client. */
     sleep(1);
 
+    /* Retrieve the display number: Xvfd writes the display number as a newline-
+     * terminated string; copy this number to form a proper display string. */
+    char display[6] = ":";
+    size_t length = ftell(display_fd);
+    if (length) {
+        rewind(display_fd);
+        fread(&display[1], 1, length, display_fd);
+        display[length] = '\0';
+    } else {
+        ret = SKIP_TEST;
+        goto err_xvfd;
+    }
+
     /* Run the function requiring a running X server */
-    ret = f();
+    ret = f(display);
 
 err_xvfd:
     if (xvfb_pid > 0)
         kill(xvfb_pid, SIGTERM);
+    fclose(display_fd);
+err_display_fd:
     return ret;
 }

@@ -1,1 +1,1 @@
-int xvfb_wrapper(int (*f)(void));
+int xvfb_wrapper(int (*f)(char* display));
