@@ -27,8 +27,7 @@
 #include "xvfb-wrapper.h"
 #include "xkbcommon/xkbcommon-x11.h"
 
-static int
-test(char *display)
+X11_TEST(test_basic)
 {
     struct xkb_context *ctx = test_get_context(0);
     xcb_connection_t *conn;
@@ -87,5 +86,5 @@ err_conn:
 }
 
 int main(void) {
-    return xvfb_wrapper(&test);
+    return x11_tests_run();
 }
