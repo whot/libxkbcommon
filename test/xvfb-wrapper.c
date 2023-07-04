@@ -35,6 +35,14 @@
 #include "xvfb-wrapper.h"
 #include "xkbcommon/xkbcommon-x11.h"
 
+static bool xvfb_is_ready;
+
+static void
+sigusr1_handler(int signal)
+{
+    xvfb_is_ready = true;
+}
+
 int xvfb_wrapper(int (*f)(char* display)) {
     /* File descriptor to retrieve the display number */
     FILE * display_fd = tmpfile();
@@ -52,14 +60,41 @@ int xvfb_wrapper(int (*f)(char* display)) {
     char *envp[] = { NULL };
     pid_t xvfb_pid = 0;
 
+    /* Set SIGUSR1 to SIG_IGN so Xvfb will send us that signal
+     * when it's ready to accept connections */
+    sigset_t mask;
+    sigemptyset (&mask);
+    sigaddset (&mask, SIGUSR1);
+    sigprocmask (SIG_BLOCK, &mask, NULL);
+
+    struct sigaction sa;
+    sa.sa_handler = SIG_IGN;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGUSR1, &sa, NULL);
+
+    xvfb_is_ready = false;
     int ret = posix_spawnp(&xvfb_pid, "Xvfb", NULL, NULL, xvfb_argv, envp);
     if (ret != 0) {
         ret = SKIP_TEST;
         goto err_xvfd;
     }
 
-    /* Wait for Xvfb fully waking up to accept a connection from a client. */
-    sleep(1);
+    sa.sa_handler = SIG_DFL;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGUSR1, &sa, NULL);
+    signal(SIGUSR1, sigusr1_handler);
+    sigprocmask (SIG_UNBLOCK, &mask, NULL);
+
+    /* Now wait for the SIGUSR1 signal that Xvfb is ready */
+    size_t counter = 0;
+    while (!xvfb_is_ready) {
+        usleep(1000);
+        if (++counter >= 3000) /* 3 seconds max wait */
+            break;
+    }
+    signal(SIGUSR1, SIG_DFL);
 
     /* Retrieve the display number: Xvfd writes the display number as a newline-
      * terminated string; copy this number to form a proper display string. */
