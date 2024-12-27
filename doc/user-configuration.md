@@ -229,4 +229,4 @@ The default behavior of libxkbregistry ensures that the new layout and options
 are added to the system-provided layouts and options.
 
 For details on the XML format, see DTD in `<datadir>/X11/xkb/rules/xkb.dtd`
-and the system-provided XML files in `<datadir>/X11/xkb/rulies/xkb.dtd`.
+and the system-provided XML files in `<datadir>/X11/xkb/rules/`.
